@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>💳 CC Generator - Team X</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0f0f0f;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 40px 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .ring {
+      border: 4px solid #00ffcc;
+      border-radius: 50%;
+      padding: 30px;
+      width: 350px;
+      max-width: 90%;
+      box-shadow: 0 0 30px #00ffcc88;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 15px;
+      color: #00ffcc;
+    }
+
+    .input-group {
+      margin: 10px 0;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #00ffcc;
+      border-radius: 8px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border: none;
+      background-color: #00ffcc;
+      color: #000;
+      font-weight: bold;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #00c0a1;
+    }
+
+    #result {
+      margin-top: 30px;
+      padding: 20px;
+      background: #111;
+      width: 100%;
+      max-width: 400px;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      box-shadow: 0 0 10px #00ffcc55;
+      min-height: 120px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .buttons button {
+      flex: 1;
+      font-size: 14px;
+      padding: 10px;
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+    }
+
+    .loader {
+      display: none;
+      margin-top: 10px;
+    }
+
+    .toggle-mode {
+      margin-top: 20px;
+      background: none;
+      border: 1px solid #00ffcc;
+      color: #00ffcc;
+    }
+
+    .light-mode {
+      background-color: #f9f9f9;
+      color: #000;
+    }
+
+    .light-mode input {
+      background: #fff;
+      color: #000;
+      border: 1px solid #00c0a1;
+    }
+
+    .light-mode button {
+      background: #00c0a1;
+      color: #fff;
+    }
+
+    .light-mode .ring {
+      border-color: #00c0a1;
+      box-shadow: 0 0 20px #00c0a166;
+    }
+
+    .light-mode #result {
+      background: #e9e9e9;
+      color: #000;
+    }
+
+    .light-mode .toggle-mode {
+      border-color: #00c0a1;
+      color: #00c0a1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ring">
+    <h1>💳 CC Generator</h1>
+    <div class="input-group">
+      <input type="text" id="bin" placeholder="BIN (e.g., 515462002115xxxx)">
+    </div>
+    <div class="input-group">
+      <input type="number" id="limit" placeholder="Limit (e.g., 10)">
+    </div>
+    <div class="input-group">
+      <input type="text" id="month" placeholder="Month (MM)">
+    </div>
+    <div class="input-group">
+      <input type="text" id="year" placeholder="Year (YY)">
+    </div>
+    <div class="input-group">
+      <input type="text" id="cvv" placeholder="CVV (e.g., 000)">
+    </div>
+    <button onclick="generate()">🔄 Generate</button>
+    <div class="loader" id="loader">⏳ Loading...</div>
+  </div>
+
+  <div id="result">Generated cards will appear here...</div>
+
+  <div class="buttons">
+    <button onclick="copyToClipboard()">📋 Copy</button>
+    <button onclick="downloadTxt()">⬇️ Save</button>
+    <button class="toggle-mode" onclick="toggleMode()">🌓 Mode</button>
+  </div>
+
+  <footer>© 2025 Team X | Educational Use Only</footer>
+
+  <script>
+    async function generate() {
+      const bin = document.getElementById("bin").value;
+      const limit = document.getElementById("limit").value;
+      const month = document.getElementById("month").value;
+      const year = document.getElementById("year").value;
+      const cvv = document.getElementById("cvv").value;
+      const loader = document.getElementById("loader");
+
+      const url = `https://cc-xtrm-api.vercel.app/generate?bin=${bin}&limit=${limit}&month=${month}&year=${year}&cvv=${cvv}`;
+      
+      loader.style.display = "block";
+      document.getElementById("result").innerText = "";
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        loader.style.display = "none";
+        if (data.result) {
+          document.getElementById("result").innerText = data.result.join("\n");
+        } else {
+          document.getElementById("result").innerText = "❌ Error: Could not generate cards.";
+        }
+      } catch (err) {
+        loader.style.display = "none";
+        document.getElementById("result").innerText = "🚫 API Error: " + err.message;
+      }
+    }
+
+    function copyToClipboard() {
+      const text = document.getElementById("result").innerText;
+      navigator.clipboard.writeText(text)
+        .then(() => alert("✅ Copied to clipboard!"))
+        .catch(() => alert("❌ Failed to copy!"));
+    }
+
+    function downloadTxt() {
+      const text = document.getElementById("result").innerText;
+      const blob = new Blob([text], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "cc-dump.txt";
+      link.click();
+    }
+
+    function toggleMode() {
+      document.body.classList.toggle("light-mode");
+    }
+  </script>
+
+</body>
+</html>
