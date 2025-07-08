@@ -117,7 +117,7 @@
             color: var(--dark);
         }
         
-        input, select {
+        input, select, textarea {
             width: 100%;
             padding: 12px 15px;
             border: 1px solid #ddd;
@@ -126,7 +126,12 @@
             transition: border 0.3s ease;
         }
         
-        input:focus, select:focus {
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        input:focus, select:focus, textarea:focus {
             border-color: var(--primary);
             outline: none;
             box-shadow: 0 0 0 2px rgba(74, 20, 140, 0.2);
@@ -168,6 +173,12 @@
         
         .btn i {
             margin-right: 8px;
+        }
+        
+        .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none !important;
         }
         
         .results {
@@ -266,6 +277,7 @@
             cursor: pointer;
             color: #666;
             transition: all 0.3s ease;
+            padding: 5px;
         }
         
         .action-btn:hover {
@@ -318,6 +330,28 @@
             font-size: 0.9rem;
         }
         
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: var(--success);
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.error {
+            background: var(--error);
+        }
+        
         @media (max-width: 768px) {
             .form-row {
                 flex-direction: column;
@@ -338,6 +372,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
+    <div class="notification" id="notification"></div>
+    
     <header>
         <div class="container">
             <h1>CC Xtreme</h1>
@@ -356,7 +392,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="bin">BIN (First 6-8 digits)</label>
-                        <input type="text" id="bin" placeholder="51546200" required>
+                        <input type="text" id="bin" placeholder="51546200" required value="51546200">
                     </div>
                     <div class="form-group">
                         <label for="limit">Number of Cards</label>
@@ -399,7 +435,7 @@
                     </div>
                     <div class="form-group">
                         <label for="cvv">CVV</label>
-                        <input type="text" id="cvv" placeholder="352" required>
+                        <input type="text" id="cvv" placeholder="352" required value="352">
                     </div>
                 </div>
                 
@@ -422,7 +458,7 @@
         <div id="checker" class="tab-content">
             <form id="checker-form">
                 <div class="form-group">
-                    <label for="cards-to-check">Credit Card Numbers (One per line)</label>
+                    <label for="cards-to-check">Credit Card Numbers (Format: NUMBER|MM|YY|CVV - One per line)</label>
                     <textarea id="cards-to-check" rows="6" placeholder="5154620021151234|12|28|352&#10;5154620021155678|06|25|123" required></textarea>
                 </div>
                 
@@ -451,6 +487,17 @@
     </footer>
     
     <script>
+        // Notification system
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification' + (isError ? ' error' : '') + ' show';
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
         // Tab switching
         const tabBtns = document.querySelectorAll('.tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
@@ -484,6 +531,27 @@
             const year = document.getElementById('year').value;
             const cvv = document.getElementById('cvv').value.trim();
             
+            // Validate inputs
+            if (!bin || !month || !year || !cvv) {
+                showNotification('Please fill all fields', true);
+                return;
+            }
+            
+            if (bin.length < 6 || bin.length > 8) {
+                showNotification('BIN must be 6-8 digits', true);
+                return;
+            }
+            
+            if (!/^\d+$/.test(bin)) {
+                showNotification('BIN must contain only numbers', true);
+                return;
+            }
+            
+            if (!/^\d{3,4}$/.test(cvv)) {
+                showNotification('CVV must be 3 or 4 digits', true);
+                return;
+            }
+            
             // Show loading state
             const submitBtn = generateForm.querySelector('button');
             const originalBtnText = submitBtn.innerHTML;
@@ -496,10 +564,14 @@
                 const response = await fetch(apiUrl);
                 
                 if (!response.ok) {
-                    throw new Error('Failed to generate cards');
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
                 }
                 
                 const cards = await response.json();
+                
+                if (!Array.isArray(cards) || cards.length === 0) {
+                    throw new Error('No cards were generated');
+                }
                 
                 // Display results
                 generatedCardsList.innerHTML = '';
@@ -522,7 +594,7 @@
                             </div>
                         </div>
                         <div class="card-actions">
-                            <button class="action-btn copy-card" data-card="${card}">
+                            <button class="action-btn copy-card" data-card="${card}" title="Copy">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -530,56 +602,4 @@
                     
                     generatedCardsList.appendChild(li);
                 });
-                
-                // Show results section
-                generateResults.style.display = 'block';
-                
-                // Add copy functionality to individual cards
-                document.querySelectorAll('.copy-card').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const card = btn.getAttribute('data-card');
-                        navigator.clipboard.writeText(card);
-                        
-                        // Show feedback
-                        const icon = btn.querySelector('i');
-                        icon.className = 'fas fa-check';
-                        setTimeout(() => {
-                            icon.className = 'fas fa-copy';
-                        }, 2000);
-                    });
-                });
-            } catch (error) {
-                alert('Error generating cards: ' + error.message);
-                console.error(error);
-            } finally {
-                // Reset button
-                submitBtn.innerHTML = originalBtnText;
-                submitBtn.disabled = false;
-            }
-        });
-        
-        // Copy all cards
-        copyAllBtn.addEventListener('click', () => {
-            const cards = Array.from(document.querySelectorAll('.card-item')).map(item => {
-                return item.querySelector('.card-number').textContent.replace(/\s/g, '') + 
-                       '|' + item.querySelector('.card-details span:first-child').textContent.replace('/', '|') +
-                       '|' + item.querySelector('.card-details span:last-child').textContent.split(': ')[1];
-            }).join('\n');
-            
-            navigator.clipboard.writeText(cards);
-            
-            // Show feedback
-            const icon = copyAllBtn.querySelector('i');
-            icon.className = 'fas fa-check';
-            copyAllBtn.textContent = ' Copied!';
-            setTimeout(() => {
-                icon.className = 'fas fa-copy';
-                copyAllBtn.textContent = ' Copy All';
-            }, 2000);
-        });
-        
-        // Checker form
-        const checkerForm = document.getElementById('checker-form');
-        const checkerResults = document.getElementById('checker-results');
-        const checkedCardsList = document.getElementById('checked-cards');
-        const validCount = do
+             
